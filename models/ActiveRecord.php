@@ -155,6 +155,13 @@ class ActiveRecord
         return array_shift($resultado);
     }
 
+    //  Retornar los registros por un orden
+    public static function ordenar($columna, $orden) {
+        $query = "SELECT * FROM " . static::$tabla . " ORDER BY ${columna} ${orden} ";
+        $resultado = self::consultarSQL($query);
+        return $resultado;
+    }
+
     // Busqueda where con multiples opciones
     public static function whereArray($array = [])
     {
@@ -172,8 +179,12 @@ class ActiveRecord
     }
 
     // Traer un total de registros
-    public static function total() {
+    public static function total($columna = '', $valor = '') {
         $query = "SELECT COUNT(*) FROM " . static::$tabla;
+
+        if($columna) {
+            $query .= " WHERE ${columna} = ${valor}";
+        }
         $resultado = self::$db->query($query);
         $total = $resultado->fetch_array();
 
