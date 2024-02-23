@@ -114,15 +114,22 @@
       font-family: "Font Awesome 6 Brands";
     }
 
-    &[href*="https://instagram.com"]::before
+    &[href*="facebook.com"]::before {
+      content: "\f39e";
+    }
+    &[href*="instagram.com"]::before
     {
       content: "\f16d";
     }
-    &[href*="https://www.youtube.com"]::before
+    &[href*="tiktok.com"]::before
+    {
+      content: "\e07b";
+    }
+    &[href*="youtube.com"]::before
     {
       content: "\f167";
     }
-    &[href*="https://twitter.com"]::before
+    &[href*="twitter.com"]::before
     {
       content: "\f099";
     }
