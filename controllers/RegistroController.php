@@ -3,9 +3,11 @@
 namespace Controllers;
 
 use Model\Dia;
+use Model\EventosRegistros;
 use Model\Hora;
 use MVC\Router;
 use Model\Evento;
+use Model\Regalo;
 use Model\Paquete;
 use Model\Ponente;
 use Model\Usuario;
@@ -51,12 +53,12 @@ class RegistroController
             $token = substr(md5(uniqid(rand(), true)), 0, 8);
 
             // Crear nuevo registro
-            $datos = array(
+            $datos = [
                 'paquete_id' => 3,
                 'pago_id' => '',
                 'token' => $token,
                 'usuario_id' => $_SESSION['id']
-            );
+            ];
 
             $registro = new Registro($datos);
             $resultado = $registro->guardar();
@@ -100,7 +102,7 @@ class RegistroController
             }
 
             // Valira que Post no venga vacio
-            if(empty($_POST)) {
+            if (empty($_POST)) {
                 echo json_encode([]);
                 return;
             }
@@ -126,7 +128,7 @@ class RegistroController
 
     public static function conferencias(Router $router)
     {
-        if(!is_auth()) {
+        if (!is_auth()) {
             header('Location: /login');
         }
 
@@ -134,41 +136,103 @@ class RegistroController
         $usuario_id = $_SESSION['id'];
         $registro = Registro::where('usuario_id', $usuario_id);
 
-        if($registro->paquete_id !== "1" ) {
+        if ($registro->paquete_id !== "1") {
             header('Location: /');
         }
 
         $eventos = Evento::ordenar('hora_id', 'ASC');
 
         $eventos_formateados = [];
-        foreach($eventos as $evento) {
+        foreach ($eventos as $evento) {
             $evento->categoria = Categoria::find($evento->categoria_id);
             $evento->dia = Dia::find($evento->dia_id);
             $evento->hora = Hora::find($evento->hora_id);
             $evento->ponente = Ponente::find($evento->ponente_id);
         }
 
-        foreach($eventos as $evento) {
-            if($evento->dia_id === '1' && $evento->categoria_id === '1') {
+        foreach ($eventos as $evento) {
+            if ($evento->dia_id === '1' && $evento->categoria_id === '1') {
                 $eventos_formateados['conferencias_v'][] = $evento;
             }
 
-            if($evento->dia_id === '2' && $evento->categoria_id === '1') {
+            if ($evento->dia_id === '2' && $evento->categoria_id === '1') {
                 $eventos_formateados['conferencias_s'][] = $evento;
             }
 
-            if($evento->dia_id === '1' && $evento->categoria_id === '2') {
+            if ($evento->dia_id === '1' && $evento->categoria_id === '2') {
                 $eventos_formateados['workshops_v'][] = $evento;
             }
 
-            if($evento->dia_id === '2' && $evento->categoria_id === '2') {
+            if ($evento->dia_id === '2' && $evento->categoria_id === '2') {
                 $eventos_formateados['workshops_s'][] = $evento;
             }
         }
 
+        $regalos = Regalo::all('ASC');
+
+        // Manejando el registro mediante $_post
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+            // Revisar que el usuario este autenticado
+            if (!is_auth()) {
+                header('Location: /login');
+            }
+
+            $eventos = explode(',', $_POST['eventos']);
+            if (empty($eventos)) {
+                echo json_encode(['resultado' => false]);
+                return;
+            }
+
+            // Obtener el registro de usuario
+            $registro = Registro::where('usuario_id', $_SESSION['id']);
+            if (!isset($registro) || $registro->paquete_id !== "1") {
+                echo json_encode(['resultado' => false]);
+                return;
+            }
+
+
+            $eventos_array = [];
+            // validar la disponibilidad de los eventos seleccionados
+            foreach ($eventos as $evento_id) {
+                $evento = Evento::find($evento_id);
+                // Comprobar que el evento exista
+                if (!isset($evento) || $evento->disponibles === "0") {
+                    echo json_encode(['resultado' => false]);
+                    return;
+                }
+                $eventos_array[] = $evento;
+            }
+
+            foreach ($eventos_array as $evento) {
+                $evento->disponibles -= 1;
+                $evento->guardar();
+
+                // Almacenar el registro
+                $datos = [
+                    'evento_id' => (int) $evento->id,
+                    'registro_id' => (int) $registro->id
+                ];
+
+                $registro_usuario = new EventosRegistros($datos);
+                $registro_usuario->guardar();
+
+            }
+
+            // Almacenar el regalo
+            $registro->sincronizar(['regalo_id' => $_POST['regalo_id']]);
+            $resultado = $registro->guardar();
+
+            if ($resultado) {
+                echo json_encode(['resultado' => $resultado]);
+            }
+            return;
+        }
+
         $router->render('registro/conferencias', [
             'titulo' => 'Elige Workshops y Conferencias',
-            'eventos' => $eventos_formateados
+            'eventos' => $eventos_formateados,
+            'regalos' => $regalos
         ]);
     }
 }
